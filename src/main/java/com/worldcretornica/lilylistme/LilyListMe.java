@@ -38,53 +38,50 @@ public class LilyListMe extends JavaPlugin implements Listener {
 
     private Chat chat = null;
     private Permission permission = null;
-    
+
     private String servername = "";
 
-    //private static Connect connect;
-    //private LilyListMe instance;
-    
     @Override
     public void onEnable() {
-        
+
         playerServers = new ConcurrentHashMap<>();
         setupChat();
         setupPermission();
-        
+
         this.getServer().getPluginManager().registerEvents(this, this);
         getConnect().registerEvents(this);
-        
+
         servername = this.getServer().getPluginManager().getPlugin("LillyConnect").getConfig().getString("Item Name");
-        
+
         Bukkit.getScheduler().scheduleSyncRepeatingTask(this, new Runnable() {
             @Override
             public void run() {
                 broadcast(servername, "CLEAR");
-                
+
                 playerServers.get(servername).clear();
-                
-                for(Player p : Bukkit.getOnlinePlayers()) {
-                    
+
+                for (Player p : Bukkit.getOnlinePlayers()) {
+
                     String name = p.getName();
                     String color = getColor(p);
                     int rank = getPlayerRank(p);
                     String server = servername;
-                    
+
                     addPlayer(name, rank, color, server);
                 }
-                                
-                if(playerServers != null) {
-                    if(playerServers.get(servername) != null) {
-                        if(playerServers.get(servername).size() > 0) {
-                            for(SortedPlayer p : playerServers.get(servername).keySet())
-                            {
+
+                if (playerServers != null) {
+                    if (playerServers.get(servername) != null) {
+                        if (playerServers.get(servername).size() > 0) {
+                            for (SortedPlayer p : playerServers.get(servername).keySet()) {
                                 broadcast(p.name, p.rank, p.color, servername, "LOGIN");
                             }
                         }
                     }
                 }
             }
-        }, 20 * 60 * 3, 20 * 60 * 10); //start after 3 minute, repeat each 5 minutes
+        }, 20 * 60 * 3, 20 * 60 * 10); // start after 3 minute, repeat each 5
+                                       // minutes
     }
 
     @Override
@@ -115,71 +112,71 @@ public class LilyListMe extends JavaPlugin implements Listener {
         if (cmd.equals("list")) {
             SortedMap<Integer, SortedSet<String>> playerlist = new TreeMap<>();
 
-            for(ConcurrentHashMap<SortedPlayer, Boolean> servers : playerServers.values()) {
-                for(SortedPlayer sp : servers.keySet()) {
-                    if(!playerlist.containsKey(sp.rank)) {
+            for (ConcurrentHashMap<SortedPlayer, Boolean> servers : playerServers.values()) {
+                for (SortedPlayer sp : servers.keySet()) {
+                    if (!playerlist.containsKey(sp.rank)) {
                         playerlist.put(sp.rank, new TreeSet<String>());
                     }
-                    
+
                     playerlist.get(sp.rank).add(sp.color + sp.name);
                 }
             }
-            
+
             String output = ChatColor.YELLOW + "Online players : " + ChatColor.RESET;
-            
-            if(playerlist.size() == 0) {
+
+            if (playerlist.size() == 0) {
                 output += ChatColor.YELLOW + "N/A";
             } else {
-                while(playerlist.size() > 0) {            
-                    for(String player : playerlist.get(playerlist.firstKey())) {
+                while (playerlist.size() > 0) {
+                    for (String player : playerlist.get(playerlist.firstKey())) {
                         output += player + ", ";
                     }
                     playerlist.remove(playerlist.firstKey());
                 }
-                
+
                 output = output.substring(0, output.length() - 2);
             }
-            
+
             sender.sendMessage(ChatColor.translateAlternateColorCodes('&', output));
-            
+
             return true;
-            
+
         } else if (cmd.equals("who")) {
 
-            if(playerServers.size() == 0) {
+            if (playerServers.size() == 0) {
                 sender.sendMessage(ChatColor.YELLOW + "Online players : N/A");
             } else {
-            
+
                 sender.sendMessage(ChatColor.YELLOW + "Online players : ");
-                
-                for(String server : playerServers.keySet()) {
-                
+
+                for (String server : playerServers.keySet()) {
+
                     String output = "  " + server + ChatColor.YELLOW + " : " + ChatColor.RESET;
-                    
+
                     SortedMap<Integer, SortedSet<String>> playerlist = new TreeMap<>();
-                    
-                    for(SortedPlayer sp : playerServers.get(server).keySet()) {
-                        
-                        if(!playerlist.containsKey(sp.rank)) {
+
+                    for (SortedPlayer sp : playerServers.get(server).keySet()) {
+
+                        if (!playerlist.containsKey(sp.rank)) {
                             playerlist.put(sp.rank, new TreeSet<String>());
                         }
-                        
+
                         playerlist.get(sp.rank).add(sp.color + sp.name);
                     }
-                    
-                    if(playerlist.size() == 0) {
+
+                    if (playerlist.size() == 0) {
                         output += ChatColor.YELLOW + "N/A";
                     } else {
-                        while(playerlist.size() > 0) {            
-                            for(String player : playerlist.get(playerlist.firstKey())) {
+                        while (playerlist.size() > 0) {
+                            for (String player : playerlist.get(playerlist.firstKey())) {
                                 output += player + ", ";
                             }
                             playerlist.remove(playerlist.firstKey());
                         }
-                        
+
                         output = output.substring(0, output.length() - 2);
                     }
-                    
+
                     sender.sendMessage(ChatColor.translateAlternateColorCodes('&', output));
                 }
             }
@@ -203,7 +200,7 @@ public class LilyListMe extends JavaPlugin implements Listener {
 
     @EventHandler(ignoreCancelled = true)
     public void onPlayerLogout(final PlayerQuitEvent e) {
-        
+
         Player p = e.getPlayer();
         String name = p.getName();
         String color = getColor(p);
@@ -219,9 +216,9 @@ public class LilyListMe extends JavaPlugin implements Listener {
         if (event.getChannel().equals(channelname)) {
             try {
                 String[] tokens;
-                
+
                 tokens = event.getMessageAsString().split(";");
-                
+
                 String action = tokens[0];
                 String name;
                 int rank;
@@ -230,10 +227,14 @@ public class LilyListMe extends JavaPlugin implements Listener {
 
                 switch (action) {
                 case "CLEAR":
-                    if(tokens.length >= 2) {
+                    if (tokens.length >= 2) {
                         server = tokens[1];
-                        
-                        playerServers.get(server).clear();
+
+                        if (playerServers != null) {
+                            if (playerServers.contains(server)) {
+                                playerServers.get(server).clear();
+                            }
+                        }
                     }
                     break;
                 case "LOGIN":
@@ -272,22 +273,21 @@ public class LilyListMe extends JavaPlugin implements Listener {
         }
 
     }
-    
 
     private void addPlayer(String name, int rank, String color, String server) {
         if (!playerServers.containsKey(server)) {
             playerServers.putIfAbsent(server, new ConcurrentHashMap<SortedPlayer, Boolean>());
         }
-        
+
         for (Iterator<SortedPlayer> i = playerServers.get(server).keySet().iterator(); i.hasNext();) {
             SortedPlayer next = i.next();
-            if(next.name.equals(name)) {
+            if (next.name.equals(name)) {
                 playerServers.get(server).remove(next);
             }
         }
 
         SortedPlayer sp = new SortedPlayer(name, rank, color);
-        
+
         playerServers.get(server).putIfAbsent(sp, true);
     }
 
@@ -298,7 +298,7 @@ public class LilyListMe extends JavaPlugin implements Listener {
 
         for (Iterator<SortedPlayer> i = playerServers.get(server).keySet().iterator(); i.hasNext();) {
             SortedPlayer next = i.next();
-            if(next.name.equals(name)) {
+            if (next.name.equals(name)) {
                 playerServers.get(server).remove(next);
             }
         }
@@ -309,8 +309,7 @@ public class LilyListMe extends JavaPlugin implements Listener {
         String prefix = chat.getGroupPrefix(p.getWorld(), group);
 
         int lastcolor = prefix.lastIndexOf("&");
-        if(lastcolor >= 0)
-        {
+        if (lastcolor >= 0) {
             return "&" + prefix.charAt(lastcolor + 1);
         }
 
@@ -336,7 +335,7 @@ public class LilyListMe extends JavaPlugin implements Listener {
         } catch (Exception e) {
         }
     }
-    
+
     private void broadcast(final String server, final String msg) {
         try {
             Connect connect = getConnect();
