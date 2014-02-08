@@ -1,0 +1,14 @@
+name: LilyListMe
+main: com.worldcretornica.lilylistme.LilyListMe
+version: 1
+author: ZachBora
+depend: [Vault, LillyConnect]
+description: >
+             Plugin for LillyPad to list the players across servers
+commands:
+  who:
+    description: List the players by servers
+    usage: /<command>
+  list:
+    description: List the players in the whole network
+    usage: /<command>
