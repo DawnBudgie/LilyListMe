@@ -18,17 +18,22 @@ import lilypad.client.connect.api.result.impl.MessageResult;
 import net.milkbowl.vault.chat.Chat;
 import net.milkbowl.vault.permission.Permission;
 
+import org.apache.commons.lang.StringUtils;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerLoginEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.RegisteredServiceProvider;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.kitteh.vanish.VanishPlugin;
+import org.kitteh.vanish.event.VanishStatusChangeEvent;
 
 public class LilyListMe extends JavaPlugin implements Listener {
 
@@ -41,6 +46,8 @@ public class LilyListMe extends JavaPlugin implements Listener {
 
     private String servername = "";
 
+    private Plugin vanishplugin = null;
+
     @Override
     public void onEnable() {
 
@@ -51,14 +58,26 @@ public class LilyListMe extends JavaPlugin implements Listener {
         this.getServer().getPluginManager().registerEvents(this, this);
         getConnect().registerEvents(this);
 
-        servername = this.getServer().getPluginManager().getPlugin("LillyConnect").getConfig().getString("Item Name");
+        if (this.getServer().getPluginManager().isPluginEnabled("LillyConnect")) {
+            servername = this.getServer().getPluginManager().getPlugin("LillyConnect").getConfig().getString("Item Name");
+        } else {
+            servername = "Server";
+        }
+
+        if (this.getServer().getPluginManager().isPluginEnabled("VanishNoPacket")) {
+            vanishplugin = this.getServer().getPluginManager().getPlugin("VanishNoPacket");
+        }
 
         Bukkit.getScheduler().scheduleSyncRepeatingTask(this, new Runnable() {
             @Override
             public void run() {
                 broadcast(servername, "CLEAR");
 
-                playerServers.get(servername).clear();
+                if (playerServers != null) {
+                    if(playerServers.get(servername) != null) {
+                        playerServers.get(servername).clear();
+                    }
+                }
 
                 for (Player p : Bukkit.getOnlinePlayers()) {
 
@@ -67,14 +86,20 @@ public class LilyListMe extends JavaPlugin implements Listener {
                     int rank = getPlayerRank(p);
                     String server = servername;
 
-                    addPlayer(name, rank, color, server);
+                    boolean invisible = false;
+
+                    if (vanishplugin != null) {
+                        invisible = ((VanishPlugin) vanishplugin).getManager().isVanished(name);
+                    }
+
+                    addPlayer(name, rank, color, server, invisible);
                 }
 
                 if (playerServers != null) {
                     if (playerServers.get(servername) != null) {
                         if (playerServers.get(servername).size() > 0) {
                             for (SortedPlayer p : playerServers.get(servername).keySet()) {
-                                broadcast(p.name, p.rank, p.color, servername, "LOGIN");
+                                broadcast(p.name, p.rank, p.color, servername, "LOGIN", p.invisible);
                             }
                         }
                     }
@@ -114,11 +139,17 @@ public class LilyListMe extends JavaPlugin implements Listener {
 
             for (ConcurrentHashMap<SortedPlayer, Boolean> servers : playerServers.values()) {
                 for (SortedPlayer sp : servers.keySet()) {
-                    if (!playerlist.containsKey(sp.rank)) {
-                        playerlist.put(sp.rank, new TreeSet<String>());
-                    }
+                    if (!sp.invisible || sender.hasPermission("vanish.see")) {
+                        if (!playerlist.containsKey(sp.rank)) {
+                            playerlist.put(sp.rank, new TreeSet<String>());
+                        }
 
-                    playerlist.get(sp.rank).add(sp.color + sp.name);
+                        if(sp.invisible) {
+                            playerlist.get(sp.rank).add(ChatColor.WHITE + "?" + sp.color + sp.name);
+                        } else {
+                            playerlist.get(sp.rank).add(sp.color + sp.name);
+                        }
+                    }
                 }
             }
 
@@ -147,26 +178,36 @@ public class LilyListMe extends JavaPlugin implements Listener {
                 sender.sendMessage(ChatColor.YELLOW + "Online players : N/A");
             } else {
 
-                sender.sendMessage(ChatColor.YELLOW + "Online players : ");
-
+                sender.sendMessage(ChatColor.GREEN + StringUtils.repeat("=", 52));
+                String buffer = "";
+                
                 for (String server : playerServers.keySet()) {
 
-                    String output = "  " + server + ChatColor.YELLOW + " : " + ChatColor.RESET;
+                    String output = "" + ChatColor.stripColor(ChatColor.translateAlternateColorCodes('&', server)) + ": ";
 
                     SortedMap<Integer, SortedSet<String>> playerlist = new TreeMap<>();
 
                     for (SortedPlayer sp : playerServers.get(server).keySet()) {
+                        if (!sp.invisible || sender.hasPermission("vanish.see")) {
+                            if (!playerlist.containsKey(sp.rank)) {
+                                playerlist.put(sp.rank, new TreeSet<String>());
+                            }
 
-                        if (!playerlist.containsKey(sp.rank)) {
-                            playerlist.put(sp.rank, new TreeSet<String>());
+                            if(sp.invisible) {
+                                playerlist.get(sp.rank).add(ChatColor.WHITE + "?" + sp.color + sp.name);
+                            } else {
+                                playerlist.get(sp.rank).add(sp.color + sp.name);
+                            }
                         }
-
-                        playerlist.get(sp.rank).add(sp.color + sp.name);
                     }
 
-                    if (playerlist.size() == 0) {
-                        output += ChatColor.YELLOW + "N/A";
-                    } else {
+                    if (playerlist.size() > 0) {
+                        if(!buffer.equals(""))
+                        {
+                            sender.sendMessage(buffer);
+                            buffer = "";
+                        }
+                        
                         while (playerlist.size() > 0) {
                             for (String player : playerlist.get(playerlist.firstKey())) {
                                 output += player + ", ";
@@ -175,10 +216,13 @@ public class LilyListMe extends JavaPlugin implements Listener {
                         }
 
                         output = output.substring(0, output.length() - 2);
+                        
+                        sender.sendMessage(ChatColor.translateAlternateColorCodes('&', output));
+                        buffer = ChatColor.GREEN + StringUtils.repeat("-", 52);
                     }
-
-                    sender.sendMessage(ChatColor.translateAlternateColorCodes('&', output));
                 }
+                
+                sender.sendMessage(ChatColor.GREEN + StringUtils.repeat("=", 52));
             }
             return true;
         }
@@ -194,11 +238,17 @@ public class LilyListMe extends JavaPlugin implements Listener {
         int rank = getPlayerRank(p);
         String server = servername;
 
-        addPlayer(name, rank, color, server);
-        broadcast(name, rank, color, server, "LOGIN");
+        boolean invisible = false;
+
+        if (vanishplugin != null) {
+            invisible = ((VanishPlugin) vanishplugin).getManager().isVanished(name);
+        }
+
+        addPlayer(name, rank, color, server, invisible);
+        broadcast(name, rank, color, server, "LOGIN", invisible);
     }
 
-    @EventHandler(ignoreCancelled = true)
+    @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
     public void onPlayerLogout(final PlayerQuitEvent e) {
 
         Player p = e.getPlayer();
@@ -207,8 +257,29 @@ public class LilyListMe extends JavaPlugin implements Listener {
         int rank = getPlayerRank(p);
         String server = servername;
 
-        removePlayer(name, rank, color, server);
-        broadcast(name, rank, color, server, "LOGOUT");
+        boolean invisible = false;
+
+        if (vanishplugin != null) {
+            invisible = ((VanishPlugin) vanishplugin).getManager().isVanished(name);
+        }
+
+        removePlayer(name, rank, color, server, invisible);
+        broadcast(name, rank, color, server, "LOGOUT", invisible);
+    }
+    
+    @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
+    public void onPlayerStatusChange(final VanishStatusChangeEvent event) {
+        
+        Player p = event.getPlayer();
+        String name = p.getName();
+        String color = getColor(p);
+        int rank = getPlayerRank(p);
+        String server = servername;
+
+        boolean invisible = event.isVanishing();
+
+        addPlayer(name, rank, color, server, invisible);
+        broadcast(name, rank, color, server, "LOGIN", invisible);
     }
 
     @EventListener
@@ -224,6 +295,7 @@ public class LilyListMe extends JavaPlugin implements Listener {
                 int rank;
                 String server;
                 String color;
+                boolean invisible;
 
                 switch (action) {
                 case "CLEAR":
@@ -247,8 +319,13 @@ public class LilyListMe extends JavaPlugin implements Listener {
                         }
                         server = tokens[3];
                         color = tokens[4];
+                        if (tokens.length >= 6) {
+                            invisible = Boolean.parseBoolean(tokens[5]);
+                        } else {
+                            invisible = false;
+                        }
 
-                        addPlayer(name, rank, color, server);
+                        addPlayer(name, rank, color, server, invisible);
                     }
                     break;
                 case "LOGOUT":
@@ -261,8 +338,13 @@ public class LilyListMe extends JavaPlugin implements Listener {
                         }
                         server = tokens[3];
                         color = tokens[4];
+                        if (tokens.length >= 6) {
+                            invisible = Boolean.parseBoolean(tokens[5]);
+                        } else {
+                            invisible = false;
+                        }
 
-                        removePlayer(name, rank, color, server);
+                        removePlayer(name, rank, color, server, invisible);
                     }
                     break;
                 }
@@ -274,7 +356,7 @@ public class LilyListMe extends JavaPlugin implements Listener {
 
     }
 
-    private void addPlayer(String name, int rank, String color, String server) {
+    private void addPlayer(String name, int rank, String color, String server, boolean invisible) {
         if (!playerServers.containsKey(server)) {
             playerServers.putIfAbsent(server, new ConcurrentHashMap<SortedPlayer, Boolean>());
         }
@@ -286,12 +368,12 @@ public class LilyListMe extends JavaPlugin implements Listener {
             }
         }
 
-        SortedPlayer sp = new SortedPlayer(name, rank, color);
+        SortedPlayer sp = new SortedPlayer(name, rank, color, invisible);
 
         playerServers.get(server).putIfAbsent(sp, true);
     }
 
-    private void removePlayer(String name, int rank, String color, String server) {
+    private void removePlayer(String name, int rank, String color, String server, boolean invisible) {
         if (!playerServers.containsKey(server)) {
             playerServers.putIfAbsent(server, new ConcurrentHashMap<SortedPlayer, Boolean>());
         }
@@ -320,11 +402,11 @@ public class LilyListMe extends JavaPlugin implements Listener {
         return super.getServer().getServicesManager().getRegistration(Connect.class).getProvider();
     }
 
-    private void broadcast(final String name, final int rank, final String color, final String server, final String msg) {
+    private void broadcast(final String name, final int rank, final String color, final String server, final String msg, final boolean invisible) {
         try {
             Connect connect = getConnect();
 
-            connect.request(new MessageRequest("", channelname, msg + ";" + name.replace(";", "") + ";" + rank + ";" + server.replace(";", "") + ";" + color.replace(";", ""))).registerListener(new FutureResultListener<MessageResult>() {
+            connect.request(new MessageRequest("", channelname, msg + ";" + name.replace(";", "") + ";" + rank + ";" + server.replace(";", "") + ";" + color.replace(";", "") + ";" + invisible)).registerListener(new FutureResultListener<MessageResult>() {
                 public void onResult(MessageResult redirectResult) {
                     if (redirectResult.getStatusCode() == StatusCode.SUCCESS) {
                         return;
@@ -356,7 +438,7 @@ public class LilyListMe extends JavaPlugin implements Listener {
 
         int rank = 0;
 
-        for (int i = 0; i < 25; i++) {
+        for (int i = 40; i > 0; i--) {
             if (player.hasPermission("rank." + i)) {
                 rank = i;
             }

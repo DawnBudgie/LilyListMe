@@ -5,11 +5,13 @@ public class SortedPlayer implements Comparable<SortedPlayer> {
     String name;
     int rank;
     String color;
+    boolean invisible;
     
-    public SortedPlayer(String name, int rank, String color) {
+    public SortedPlayer(String name, int rank, String color, boolean invisible) {
         this.name = name;
         this.rank = rank;
         this.color = color;
+        this.invisible = invisible;
     }
 
     @Override

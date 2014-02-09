@@ -2,7 +2,7 @@ name: LilyListMe
 main: com.worldcretornica.lilylistme.LilyListMe
 version: 1
 author: ZachBora
-depend: [Vault, LillyConnect, LilyPad-Connect]
+depend: [Vault, LillyConnect, LilyPad-Connect, VanishNoPacket]
 description: >
              Plugin for LillyPad to list the players across servers
 commands:
